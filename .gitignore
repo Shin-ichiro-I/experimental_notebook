@@ -1,0 +1,14 @@
+# 仮想環境のディレクトリ
+venv/
+eln/
+
+# Pythonのキャッシュやコンパイルされたファイル
+__pycache__/
+*.pyc
+
+# IDE（Visual Studio Codeなど）の一時ファイル
+.vscode/
+
+# OSのシステムファイル
+.DS_Store
+Thumbs.db
