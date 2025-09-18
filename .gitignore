@@ -12,3 +12,6 @@ __pycache__/
 # OSのシステムファイル
 .DS_Store
 Thumbs.db
+
+# Neo4jの接続情報
+.env
