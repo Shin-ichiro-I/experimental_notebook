@@ -4,38 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Electronic Lab Notebook</title>
-    <!-- Tailwind CSSを読み込み -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <! -- Mermaid.jpライブラリの読み込み>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <style>
-        /* Sidebar item styles */
-        .sidebar-item {
-            transition: background-color 0.2s ease-in-out;
-        }
-        .sidebar-item:hover {
-            background-color: #4A5568; /* hover:bg-gray-600 */
-        }
-        .sidebar-item.active {
-            background-color: #4299E1; /* bg-blue-500 */
-        }
-
-        /* Mercaid.jpのダークテーマ用カスタムスタイル*/
-        .mermaid .node rect, .mermaid .node circle, .mermaid .node polygon{
-            fill: #2D3748; /* bg-gray-700 */
-            stroke: #4A5568; /* border-gray-600*/
-            stroke-width: 2px;
-        }
-        .mermaid .node .label { color: #E2E8F0; } /* text-gray-200 */
-        .mermaid .edgeLabel { background-color: #1A202C; color: #A0AEC0; } /* bg-gray-800, text-gray-400 */
-        .mermaid .edgePath { stroke: #4A5568; }
-        .mermaid .arrowhead { fill: #4A5568; }
-
-        /* ノードのカテゴリに応じた色分けスタイル */
-        .mermaid .node.substances rect { fill: #2B6CB0; } /* bg-blue-700 */
-        .mermaid .node.processing rect { fill: #9B2C2C; } /* bg-red-700 */
-        .mermaid .node.measurement rect { fill: #2C7A7B; } /* bg-teal-700 */
-        .mermaid .node.others rect { fill: #4A5568; } /* bg-gray-600 */        
+        .sidebar-item { transition: background-color 0.2s ease-in-out; }
+        .sidebar-item:hover { background-color: #4A5568; }
+        .sidebar-item.active { background-color: #4299E1; }
+        .mermaid .node rect, .mermaid .node circle, .mermaid .node polygon { fill: #2D3748; stroke: #4A5568; stroke-width: 2px; }
+        .mermaid .node .label { color: #E2E8F0; }
+        .mermaid .edgeLabel { background-color: #1A202C; color: #A0AEC0; }
+        .mermaid .edgePath, .mermaid .arrowhead { stroke: #4A5568; fill: #4A5568; }
+        .mermaid .node.substances rect { fill: #2B6CB0; }
+        .mermaid .node.processing rect { fill: #9B2C2C; }
+        .mermaid .node.measurement rect { fill: #2C7A7B; }
+        .mermaid .node.others rect { fill: #4A5568; }
     </style>
 </head>
 <body class="bg-gray-800 text-gray-200 font-sans">
@@ -44,159 +26,402 @@
         <header class="mb-6">
             <h1 class="text-3xl font-bold text-white">Electronic Lab Notebook</h1>
         </header>
-
         <main class="grid grid-cols-1 md:grid-cols-4 gap-6">
-            
-            <!-- 左カラム: プロジェクトとフォルダ (今回は静的) -->
             <aside class="md:col-span-1 bg-gray-900 p-4 rounded-lg">
                 <h2 class="text-xl font-semibold mb-4 border-b border-gray-700 pb-2">Projects</h2>
-                <div id="project-list">
-                    <!-- 今はプロジェクト名を固定で表示 -->
-                    <div class="p-2 rounded cursor-pointer bg-gray-700">PJ-Verification-Test</div>
-                    <div class="pl-4 mt-2">
-                        <div class="p-2 rounded cursor-pointer bg-gray-600">Team_Alpha</div>
-                         <div class="pl-4 mt-2">
-                            <div class="p-2 rounded cursor-pointer bg-blue-600 text-white">Polymer_Synthesis</div>
-                        </div>
-                    </div>
+                <div id="project-list" class="space-y-2">
+                    <p id="project-loading">Loading projects...</p>
                 </div>
             </aside>
-
-            <!-- 中央カラム: 実験ノート一覧 -->
             <section class="md:col-span-1 bg-gray-900 p-4 rounded-lg">
-                <h2 class="text-xl font-semibold mb-4 border-b border-gray-700 pb-2">Experiments</h2>
+                <div class="flex justify-between items-center mb-4 border-b border-gray-700 pb-2">
+                    <h2 class="text-xl font-semibold">Experiments</h2>
+                    <button id="new-note-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 rounded-full text-sm">+</button>
+                </div>
                 <div id="experiment-list" class="space-y-2">
-                    <!-- JavaScriptによって実験ノートの一覧がここに挿入されます -->
-                    <p id="exp-loading">Loading experiments...</p>
+                    <p id="exp-loading" class="text-gray-400">Select a project and folder.</p>
                 </div>
             </section>
-
-            <!-- 右カラム: 詳細表示 -->
             <section id="details-panel" class="md:col-span-2 bg-gray-900 p-4 rounded-lg">
-                <h2 class="text-xl font-semibold mb-4 border-b border-gray-700 pb-2">Details</h2>
+                <h2 class="text-xl font-semibold mb-4 border-b border-gray-700 pb-2">Flowchart Details</h2>
                 <div id="details-content">
                     <p class="text-gray-400">Select an experiment to see details.</p>
                 </div>
             </section>
-
         </main>
     </div>
 
+    <div id="note-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-3xl max-h-full overflow-y-auto">
+            <h3 id="modal-title" class="text-xl font-semibold mb-4">New/Edit Experiment Note</h3>
+            <form id="note-form">
+                <input type="hidden" id="form-exp-id">
+                <input type="hidden" id="form-project-name">
+                <input type="hidden" id="form-folder-path">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="form-exp-name" class="block text-sm font-medium text-gray-300">Experiment Name</label>
+                        <input type="text" id="form-exp-name" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm" required>
+                    </div>
+                    <div>
+                        <label for="form-registrant" class="block text-sm font-medium text-gray-300">Registrant</label>
+                        <input type="text" id="form-registrant" class="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm" required>
+                    </div>
+                </div>
+                <hr class="my-6 border-gray-600">
+                <div class="flex justify-between items-center mb-4">
+                    <h4 class="text-lg font-semibold">Flowchart Nodes</h4>
+                    <button type="button" id="add-node-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded">Add Node</button>
+                </div>
+                <div id="form-nodes-container" class="space-y-4"></div>
+                <hr class="my-6 border-gray-600">
+                <div class="flex justify-between items-center mb-4">
+                    <h4 class="text-lg font-semibold">Flowchart Edges</h4>
+                    <button type="button" id="add-edge-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-1 px-3 rounded">Add Edge</button>
+                </div>
+                <div id="form-edges-container" class="space-y-4"></div>
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button type="button" id="modal-close-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded">Cancel</button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
-        // Mercail.jsの初期化（ページ読み込み時の自動実行はオフにする）
+        // ( mermaid.initialize, 変数定義, fetchAndDisplayProjects, fetchAndDisplayFolders, fetchAndDisplayExperiments, fetchAndDisplayDetails は変更なし )
         mermaid.initialize({ startOnLoad: false, theme: 'base' });
-
-        const API_BASE_URL = "http://127.0.0.1:8000";
-
-        // DOM要素を取得
+        const API_BASE_URL = "http://localhost:8000/api/v1";
+        const projectListElement = document.getElementById('project-list');
         const expListElement = document.getElementById('experiment-list');
-        const expLoadingElement = document.getElementById('exp-loading');
         const detailsContentElement = document.getElementById('details-content');
-
-        /**
-         * 指定されたプロジェクトとフォルダパスの実験ノート一覧を取得して表示する関数
-         */
-        async function fetchAndDisplayExperiments(projectName, folderPath) {
+        const newNoteBtn = document.getElementById('new-note-btn');
+        const modal = document.getElementById('note-modal');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+        const noteForm = document.getElementById('note-form');
+        const addNodeBtn = document.getElementById('add-node-btn');
+        const nodesContainer = document.getElementById('form-nodes-container');
+        const addEdgeBtn = document.getElementById('add-edge-btn');
+        const edgesContainer = document.getElementById('form-edges-container');
+        const modalTitle = document.getElementById('modal-title');
+        let activeProjectName = null;
+        let activeFolderPath = null;
+        let formNodes = [];
+        let formEdges = [];
+        async function fetchAndDisplayProjects() {
             try {
-                const response = await fetch(`${API_BASE_URL}/experiments/?project_name=${projectName}&folder_path=${folderPath}`);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                const response = await fetch(`${API_BASE_URL}/projects/`);
+                if (!response.ok) throw new Error('Failed to fetch projects');
+                const projects = await response.json();
+                projectListElement.innerHTML = '';
+                projects.forEach(projectName => {
+                    const projectContainer = document.createElement('div');
+                    const projectItem = document.createElement('div');
+                    projectItem.className = 'sidebar-item p-2 rounded cursor-pointer bg-gray-700';
+                    projectItem.textContent = projectName;
+                    projectContainer.appendChild(projectItem);
+                    projectListElement.appendChild(projectContainer);
+                    projectItem.addEventListener('click', async () => {
+                        document.querySelectorAll('.folder-container').forEach(c => c.remove());
+                        document.querySelectorAll('#project-list .sidebar-item').forEach(el => el.classList.remove('active'));
+                        projectItem.classList.add('active');
+                        const folderContainer = document.createElement('div');
+                        folderContainer.className = 'folder-container pl-4 mt-2';
+                        projectContainer.appendChild(folderContainer);
+                        activeProjectName = projectName;
+                        activeFolderPath = null;
+                        expListElement.innerHTML = '<p class="text-gray-400">Select a folder.</p>';
+                        await fetchAndDisplayFolders(projectName, folderContainer);
+                    });
+                });
+            } catch (error) {
+                console.error(error);
+                projectListElement.innerHTML = '<p class="text-red-500">Failed to load projects.</p>';
+            }
+        }
+        async function fetchAndDisplayFolders(projectName, parentElement) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/projects/${projectName}/folders/`);
+                if (!response.ok) throw new Error('Failed to fetch folders');
+                const folders = await response.json();
+                parentElement.innerHTML = '';
+                const renderFolders = (folderList, container) => {
+                    folderList.forEach(folder => {
+                        const folderItem = document.createElement('div');
+                        folderItem.className = `sidebar-item p-2 rounded cursor-pointer bg-gray-600`;
+                        folderItem.textContent = folder.name;
+                        container.appendChild(folderItem);
+                        folderItem.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            document.querySelectorAll('#project-list .sidebar-item').forEach(el => el.classList.remove('active'));
+                            folderItem.classList.add('active');
+                            activeFolderPath = folder.path;
+                            fetchAndDisplayExperiments(projectName, folder.path);
+                        });
+                        if (folder.children && folder.children.length > 0) {
+                            const childrenContainer = document.createElement('div');
+                            childrenContainer.className = `pl-4 mt-2`;
+                            container.appendChild(childrenContainer);
+                            renderFolders(folder.children, childrenContainer);
+                        }
+                    });
+                };
+                renderFolders(folders, parentElement);
+            } catch (error) {
+                console.error(error);
+                parentElement.innerHTML = '<p class="text-red-500">Failed to load folders.</p>';
+            }
+        }
+        async function fetchAndDisplayExperiments(projectName, folderPath) {
+            expListElement.innerHTML = '<p id="exp-loading">Loading experiments...</p>';
+            detailsContentElement.innerHTML = '<p class="text-gray-400">Select an experiment to see details.</p>';
+            try {
+                const url = new URL(`${API_BASE_URL}/experiments/`);
+                url.searchParams.append('project_name', projectName);
+                url.searchParams.append('folder_path', folderPath);
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const experiments = await response.json();
-
-                // ローディング表示を消去
-                expLoadingElement.style.display = 'none';
-                expListElement.innerHTML = ''; // 既存のリストをクリア
-
+                expListElement.innerHTML = '';
                 if (experiments.length === 0) {
                     expListElement.innerHTML = '<p class="text-gray-400">No experiments found.</p>';
                     return;
                 }
-
-                // 取得した実験ノートをリストとして表示
                 experiments.forEach(exp => {
-                    const item = document.createElement('div');
-                    item.className = 'sidebar-item p-3 rounded-md cursor-pointer text-sm';
-                    item.textContent = exp.name;
-                    item.dataset.expId = exp.id; // クリック時に使うIDをdata属性に保存
-                    
-                    // クリックイベントを追加
-                    item.addEventListener('click', () => {
-                        // 他のアイテムのアクティブ状態を解除
+                    const itemContainer = document.createElement('div');
+                    itemContainer.className = 'sidebar-item p-3 rounded-md text-sm flex justify-between items-center';
+                    const nameSpan = document.createElement('span');
+                    nameSpan.textContent = exp.experiment_name;
+                    nameSpan.className = 'cursor-pointer flex-grow';
+                    nameSpan.addEventListener('click', () => {
                         document.querySelectorAll('#experiment-list .sidebar-item').forEach(el => el.classList.remove('active'));
-                        // クリックされたアイテムをアクティブに
-                        item.classList.add('active');
-                        // 詳細表示関数を呼び出し
+                        itemContainer.classList.add('active');
                         fetchAndDisplayDetails(exp.id);
                     });
-
-                    expListElement.appendChild(item);
+                    const editBtn = document.createElement('button');
+                    editBtn.textContent = '...';
+                    editBtn.className = 'text-xs ml-2 px-2 py-1 rounded hover:bg-gray-600';
+                    editBtn.addEventListener('click', () => openEditModal(exp.id));
+                    itemContainer.appendChild(nameSpan);
+                    itemContainer.appendChild(editBtn);
+                    expListElement.appendChild(itemContainer);
                 });
-
             } catch (error) {
                 console.error('Failed to fetch experiments:', error);
-                expLoadingElement.textContent = 'Failed to load experiments.';
+                expListElement.innerHTML = '<p class="text-red-500">Failed to load experiments.</p>';
             }
         }
-
-        /**
-         * 指定された実験ノートIDの詳細を取得し、フローチャートを描画する関数
-         */
         async function fetchAndDisplayDetails(expId) {
             detailsContentElement.innerHTML = '<p class="text-gray-400">Loading flowchart...</p>';
             try {
-                const response = await fetch(`${API_BASE_URL}/note/${expId}`);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
+                const response = await fetch(`${API_BASE_URL}/experiments/${expId}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                 const details = await response.json();
-                
-                // ステップ1: Mermaid.jsが理解できるテキスト構文を生成する
-                let mermaidSyntax = 'graph TD;\n'; // Top-Down (上から下へ) のグラフ
-
-                // ノードの定義 (例: node_id["表示テキスト"])
+                let mermaidSyntax = 'graph TD;\n';
                 details.nodes.forEach(node => {
-                    // ノード名に " や ' が含まれると構文エラーになるため、サニタイズ（無害化）する
-                    const nodeName = (node.properties.node_name || 'Unnamed Node')
-                        .replace(/"/g, '#quot;')
-                        .replace(/'/g, '#apos;');
+                    const nodeName = (node.properties['Node Name'] || 'Unnamed Node').replace(/"/g, '#quot;').replace(/'/g, '#apos;');
                     mermaidSyntax += `    ${node.id}["${nodeName}"];\n`;
                     mermaidSyntax += `    class ${node.id} ${node.category.toLowerCase()};\n`;
                 });
-
-                // エッジ（繋がり）の定義 (例: source_id -->|"ラベル"| target_id)
                 details.edges.forEach(edge => {
-                    // edge.label (以前はedge.type) が存在しない場合は空文字を使う
-                    const edgeLabel = (edge.label || '')
-                        .replace(/"/g, '#quot;')
-                        .replace(/'/g, '#apos;');
+                    const edgeLabel = (edge.type || '').replace(/"/g, '#quot;').replace(/'/g, '#apos;');
                     mermaidSyntax += `    ${edge.source_id} -->|"${edgeLabel}"| ${edge.target_id};\n`;
                 });
-                
-                // ステップ2: 生成した構文をHTMLに挿入
-                detailsContentElement.innerHTML = `
-                    <h3 class="text-lg font-bold text-blue-400">${details.experiment_name}</h3>
-                    <p class="text-sm text-gray-400">Registrant: ${details.registrant} | Date: ${details.registration_date}</p>
-                    <div class="mermaid mt-4">
-                        ${mermaidSyntax}
-                    </div>
-                `;
-
-                // ステップ3: Mermaid.jsに描画を命令
+                detailsContentElement.innerHTML = `<h3 class="text-lg font-bold text-blue-400">${details.experiment_name}</h3><p class="text-sm text-gray-400">Registrant: ${details.registrant} | Date: ${details.registration_date}</p><div class="mermaid mt-4">${mermaidSyntax}</div>`;
                 await mermaid.run();
-
             } catch (error) {
                 console.error('Failed to fetch details:', error);
                 detailsContentElement.innerHTML = '<p class="text-red-500">Failed to load flowchart details.</p>';
             }
         }
 
-        // ページ読み込み完了時に、検証用プロジェクトの実験ノート一覧を自動的に取得
+        // --- ▼▼▼▼▼ この関数を全面的に修正 ▼▼▼▼▼ ---
+        function renderNodeForm() {
+            nodesContainer.innerHTML = '';
+            formNodes.forEach((node, index) => {
+                const nodeEl = document.createElement('div');
+                nodeEl.className = 'p-4 border border-gray-600 rounded-md space-y-2';
+                
+                // 基本的なプロパティのHTML
+                let basicPropsHtml = `
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <div><label class="text-xs">Node ID</label><input type="text" value="${node.id}" data-index="${index}" data-field="id" class="node-input mt-1 w-full bg-gray-700 rounded p-1 text-sm"></div>
+                        <div><label class="text-xs">Category</label><select data-index="${index}" data-field="category" class="node-input mt-1 w-full bg-gray-700 rounded p-1 text-sm"><option>Substances</option><option>Processing</option><option>Measurement</option><option>Others</option></select></div>
+                        <div><label class="text-xs">Node Name</label><input type="text" value="${node.properties['Node Name'] || ''}" data-index="${index}" data-prop-key="Node Name" class="node-prop-input mt-1 w-full bg-gray-700 rounded p-1 text-sm"></div>
+                    </div>
+                `;
+                
+                // カスタムプロパティ用のコンテナ
+                let customPropsHtml = '<div class="custom-props-container mt-2 space-y-2">';
+                const predefinedKeys = ['Node Name', 'Node Type', 'CAS RN', 'SMILES', 'Weight', 'Volume', 'Note'];
+                for (const key in node.properties) {
+                    if (!predefinedKeys.includes(key)) {
+                        customPropsHtml += `
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="text" value="${key}" data-index="${index}" class="custom-key-input bg-gray-600 rounded p-1 text-sm" placeholder="Property Name">
+                                <input type="text" value="${node.properties[key]}" data-index="${index}" data-key="${key}" class="custom-value-input bg-gray-700 rounded p-1 text-sm" placeholder="Property Value">
+                            </div>
+                        `;
+                    }
+                }
+                customPropsHtml += '</div>';
+
+                // 「プロパティ追加」ボタン
+                const addPropBtnHtml = `<button type="button" data-index="${index}" class="add-prop-btn text-xs bg-gray-600 hover:bg-gray-500 px-2 py-1 rounded mt-2">Add Property</button>`;
+
+                nodeEl.innerHTML = basicPropsHtml + customPropsHtml + addPropBtnHtml;
+                nodesContainer.appendChild(nodeEl);
+                // カテゴリの選択状態を設定
+                nodeEl.querySelector(`[data-field='category']`).value = node.category;
+            });
+            renderEdgeForm();
+        }
+
+        function renderEdgeForm() {
+            edgesContainer.innerHTML = '';
+            if (formNodes.length < 1) return;
+            const nodeOptions = formNodes.map(node => `<option value="${node.id}">${node.properties['Node Name'] || node.id}</option>`).join('');
+            formEdges.forEach((edge, index) => {
+                const edgeEl = document.createElement('div');
+                edgeEl.className = 'p-3 border border-gray-600 rounded-md grid grid-cols-1 md:grid-cols-3 gap-2';
+                edgeEl.innerHTML = `<div><label class="text-xs">Source Node</label><select data-index="${index}" data-field="source_id" class="edge-input mt-1 block w-full bg-gray-700 border-gray-600 rounded-md text-sm"><option value="">Select source</option>${nodeOptions}</select></div><div><label class="text-xs">Target Node</label><select data-index="${index}" data-field="target_id" class="edge-input mt-1 block w-full bg-gray-700 border-gray-600 rounded-md text-sm"><option value="">Select target</option>${nodeOptions}</select></div><div><label class="text-xs">Type (Label)</label><input type="text" value="${edge.type || ''}" data-index="${index}" data-field="type" class="edge-input mt-1 block w-full bg-gray-700 border-gray-600 rounded-md text-sm"></div>`;
+                edgesContainer.appendChild(edgeEl);
+                edgeEl.querySelector(`[data-field='source_id']`).value = edge.source_id;
+                edgeEl.querySelector(`[data-field='target_id']`).value = edge.target_id;
+            });
+        }
+
+        // --- イベントリスナーの登録とフォーム処理 ---
+
+        newNoteBtn.addEventListener('click', () => {
+            if (!activeProjectName || !activeFolderPath) {
+                alert('Please select a project and a folder first.');
+                return;
+            }
+            modalTitle.textContent = 'New Experiment Note';
+            noteForm.reset();
+            document.getElementById('form-exp-id').value = '';
+            document.getElementById('form-project-name').value = activeProjectName;
+            document.getElementById('form-folder-path').value = activeFolderPath;
+            formNodes = [{ id: `node-${Date.now()}`, category: "Substances", properties: { "Node Name": "" } }];
+            formEdges = [];
+            renderNodeForm();
+            modal.classList.remove('hidden');
+        });
+
+        async function openEditModal(expId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/experiments/${expId}`);
+                if (!response.ok) throw new Error('Failed to fetch experiment details for editing.');
+                const data = await response.json();
+                modalTitle.textContent = 'Edit Experiment Note';
+                noteForm.reset();
+                document.getElementById('form-exp-id').value = data.id;
+                document.getElementById('form-project-name').value = data.project_name;
+                document.getElementById('form-folder-path').value = data.folder_path;
+                document.getElementById('form-exp-name').value = data.experiment_name;
+                document.getElementById('form-registrant').value = data.registrant;
+                formNodes = data.nodes.map(n => ({ ...n, properties: n.properties || {} }));
+                formEdges = data.edges.map(e => ({ ...e }));
+                renderNodeForm();
+                modal.classList.remove('hidden');
+            } catch (error) {
+                alert(error.message);
+                console.error(error);
+            }
+        }
+
+        addNodeBtn.addEventListener('click', () => {
+            formNodes.push({ id: `node-${Date.now()}`, category: "Processing", properties: { "Node Name": "" } });
+            renderNodeForm();
+        });
+
+        addEdgeBtn.addEventListener('click', () => {
+            formEdges.push({ source_id: '', target_id: '', type: ''});
+            renderEdgeForm();
+        });
+
+        modalCloseBtn.addEventListener('click', () => modal.classList.add('hidden'));
+
+        // ▼▼▼ 親要素でのイベントリスナーを更新 ▼▼▼
+        nodesContainer.addEventListener('change', (e) => {
+            const target = e.target;
+            const index = target.dataset.index;
+            if (!index) return;
+
+            if (target.classList.contains('node-input')) {
+                const field = target.dataset.field;
+                if (field === 'id' || field === 'category') formNodes[index][field] = target.value;
+            } else if (target.classList.contains('node-prop-input')) {
+                const key = target.dataset.propKey;
+                formNodes[index].properties[key] = target.value;
+            } else if (target.classList.contains('custom-value-input')) {
+                const key = target.dataset.key;
+                formNodes[index].properties[key] = target.value;
+            } else if (target.classList.contains('custom-key-input')) {
+                // キーが変更された場合、古いキーを削除して新しいキーで値を設定
+                const oldValue = target.nextElementSibling.value;
+                const oldKey = target.nextElementSibling.dataset.key;
+                delete formNodes[index].properties[oldKey];
+                formNodes[index].properties[target.value] = oldValue;
+                // 再描画して、新しいキーをvalue-inputのdata-keyに反映
+                renderNodeForm();
+            }
+            renderEdgeForm();
+        });
+
+        nodesContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('add-prop-btn')) {
+                const index = e.target.dataset.index;
+                formNodes[index].properties[`custom_prop_${Date.now()}`] = "";
+                renderNodeForm();
+            }
+        });
+
+        edgesContainer.addEventListener('change', (e) => {
+            if (e.target.classList.contains('edge-input')) {
+                const index = e.target.dataset.index;
+                const field = e.target.dataset.field;
+                formEdges[index][field] = e.target.value;
+            }
+        });
+
+        noteForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const expId = document.getElementById('form-exp-id').value;
+            const isEditing = !!expId;
+            const formData = {
+                project_name: document.getElementById('form-project-name').value,
+                folder_path: document.getElementById('form-folder-path').value,
+                experiment_name: document.getElementById('form-exp-name').value,
+                registrant: document.getElementById('form-registrant').value,
+                registration_date: new Date().toISOString().split('T')[0],
+                nodes: formNodes,
+                edges: formEdges
+            };
+            const url = isEditing ? `${API_BASE_URL}/experiments/${expId}` : `${API_BASE_URL}/experiments/`;
+            const method = isEditing ? 'PUT' : 'POST';
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    alert('Failed to save: ' + JSON.stringify(errorData.detail));
+                    throw new Error(JSON.stringify(errorData.detail));
+                }
+                modal.classList.add('hidden');
+                fetchAndDisplayExperiments(activeProjectName, activeFolderPath);
+            } catch (error) {
+                console.error('Failed to submit form:', error);
+            }
+        });
+        
         document.addEventListener('DOMContentLoaded', () => {
-            fetchAndDisplayExperiments('PJ-Verification-Test', '/Team_Alpha/Polymer_Synthesis/');
+            fetchAndDisplayProjects();
         });
     </script>
-
 </body>
 </html>
-

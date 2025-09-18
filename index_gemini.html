@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electronic Lab Notebook</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Mermaid.js -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        /* Sidebar item styles */
+        .sidebar-item { transition: background-color 0.2s ease-in-out; }
+        .sidebar-item:hover { background-color: #4A5568; }
+        .sidebar-item.active { background-color: #4299E1; }
+
+        /* Mermaid.js flowchart custom styles for dark theme */
+        .mermaid .node rect, .mermaid .node circle, .mermaid .node polygon {
+            fill: #2D3748; /* bg-gray-700 */
+            stroke: #4A5568; /* border-gray-600 */
+            stroke-width: 2px;
+        }
+        .mermaid .node .label { color: #E2E8F0; } /* text-gray-200 */
+        .mermaid .edgeLabel { background-color: #1A202C; color: #A0AEC0; } /* bg-gray-800, text-gray-400 */
+        .mermaid .edgePath, .mermaid .arrowhead { stroke: #4A5568; fill: #4A5568; }
+
+        /* Node category specific styles */
+        .mermaid .node.substances rect { fill: #2B6CB0; } /* bg-blue-700 */
+        .mermaid .node.processing rect { fill: #9B2C2C; } /* bg-red-700 */
+        .mermaid .node.measurement rect { fill: #2C7A7B; } /* bg-teal-700 */
+        .mermaid .node.others rect { fill: #4A5568; } /* bg-gray-600 */
+    </style>
+</head>
+<body class="bg-gray-800 text-gray-200 font-sans">
+
+    <div class="container mx-auto p-4">
+        <header class="mb-6">
+            <h1 class="text-3xl font-bold text-white">Electronic Lab Notebook</h1>
+        </header>
+
+        <main class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            
+            <!-- Left Column: Projects -->
+            <aside class="md:col-span-1 bg-gray-900 p-4 rounded-lg">
+                <h2 class="text-xl font-semibold mb-4 border-b border-gray-700 pb-2">Projects</h2>
+                <div id="project-list">
+                    <div class="p-2 rounded cursor-pointer bg-gray-700">PJ-Verification-Test</div>
+                    <div class="pl-4 mt-2">
+                        <div class="p-2 rounded cursor-pointer bg-gray-600">Team_Alpha</div>
+                         <div class="pl-4 mt-2">
+                            <div class="p-2 rounded cursor-pointer bg-blue-600 text-white">Polymer_Synthesis</div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Center Column: Experiments List -->
+            <section class="md:col-span-1 bg-gray-900 p-4 rounded-lg">
+                <h2 class="text-xl font-semibold mb-4 border-b border-gray-700 pb-2">Experiments</h2>
+                <div id="experiment-list" class="space-y-2">
+                    <p id="exp-loading">Loading experiments...</p>
+                </div>
+            </section>
+
+            <!-- Right Column: Details & Flowchart -->
+            <section id="details-panel" class="md:col-span-2 bg-gray-900 p-4 rounded-lg">
+                <h2 class="text-xl font-semibold mb-4 border-b border-gray-700 pb-2">Flowchart Details</h2>
+                <div id="details-content">
+                    <p class="text-gray-400">Select an experiment to see details.</p>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script>
+        // Mermaid.js initialization (disable auto-start on load)
+        mermaid.initialize({ startOnLoad: false, theme: 'base' });
+
+        const API_BASE_URL = "http://127.0.0.1:8000";
+        const expListElement = document.getElementById('experiment-list');
+        const expLoadingElement = document.getElementById('exp-loading');
+        const detailsContentElement = document.getElementById('details-content');
+
+        /**
+         * Fetches and displays the list of experiments for a given project/folder.
+         */
+        async function fetchAndDisplayExperiments(projectName, folderPath) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/experiments/?project_name=${projectName}&folder_path=${folderPath}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const experiments = await response.json();
+
+                expLoadingElement.style.display = 'none';
+                expListElement.innerHTML = ''; 
+
+                if (experiments.length === 0) {
+                    expListElement.innerHTML = '<p class="text-gray-400">No experiments found.</p>';
+                    return;
+                }
+
+                experiments.forEach(exp => {
+                    const item = document.createElement('div');
+                    item.className = 'sidebar-item p-3 rounded-md cursor-pointer text-sm';
+                    item.textContent = exp.name;
+                    item.dataset.expId = exp.id;
+                    
+                    item.addEventListener('click', () => {
+                        document.querySelectorAll('#experiment-list .sidebar-item').forEach(el => el.classList.remove('active'));
+                        item.classList.add('active');
+                        fetchAndDisplayDetails(exp.id);
+                    });
+                    expListElement.appendChild(item);
+                });
+
+            } catch (error) {
+                console.error('Failed to fetch experiments:', error);
+                expLoadingElement.textContent = 'Failed to load experiments.';
+            }
+        }
+
+        /**
+         * Fetches details for a given experiment ID and renders the flowchart.
+         */
+        async function fetchAndDisplayDetails(expId) {
+            detailsContentElement.innerHTML = '<p class="text-gray-400">Loading flowchart...</p>';
+            try {
+                const response = await fetch(`${API_BASE_URL}/note/${expId}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const details = await response.json();
+                
+                // Step 1: Generate Mermaid.js syntax from the API data
+                let mermaidSyntax = 'graph TD;\n'; // Top-Down graph
+
+                // Define nodes
+                details.nodes.forEach(node => {
+                    // Sanitize node name to prevent syntax errors
+                    const nodeName = (node.properties.node_name || 'Unnamed Node')
+                        .replace(/"/g, '#quot;')
+                        .replace(/'/g, '#apos;');
+                    mermaidSyntax += `    ${node.id}["${nodeName}"];\n`;
+                    // Assign a class for styling based on category
+                    mermaidSyntax += `    class ${node.id} ${node.category.toLowerCase()};\n`;
+                });
+
+                // Define edges (relationships)
+                details.edges.forEach(edge => {
+                    // Sanitize edge label
+                    const edgeLabel = (edge.label || '')
+                        .replace(/"/g, '#quot;')
+                        .replace(/'/g, '#apos;');
+                    mermaidSyntax += `    ${edge.source_id} -->|"${edgeLabel}"| ${edge.target_id};\n`;
+                });
+                
+                // Step 2: Insert the generated syntax into the HTML
+                detailsContentElement.innerHTML = `
+                    <h3 class="text-lg font-bold text-blue-400">${details.experiment_name}</h3>
+                    <p class="text-sm text-gray-400">Registrant: ${details.registrant} | Date: ${details.registration_date}</p>
+                    <div class="mermaid mt-4">
+                        ${mermaidSyntax}
+                    </div>
+                `;
+
+                // Step 3: Tell Mermaid.js to render the diagram
+                await mermaid.run();
+
+            } catch (error) {
+                console.error('Failed to fetch details:', error);
+                detailsContentElement.innerHTML = '<p class="text-red-500">Failed to load flowchart details.</p>';
+            }
+        }
+
+        // On page load, automatically fetch experiments for the default project
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchAndDisplayExperiments('PJ-Verification-Test', '/Team_Alpha/Polymer_Synthesis/');
+        });
+    </script>
+</body>
+</html>
+

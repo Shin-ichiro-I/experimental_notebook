@@ -1,14 +1,50 @@
 import uuid
-from pydantic import BaseModel, Field
-from typing import List, Dict, Any
+from pydantic import BaseModel, Field, ConfigDict
+from typing import List, Dict, Any, Union, Literal
 from datetime import date
+
+class Folder(BaseModel):
+    name: str
+    path: str
+    children: List['Folder'] = []
+
+# --- ▼▼▼ ノードのプロパティをカテゴリ別に定義 ▼▼▼ ---
+class SubstanceProperties(BaseModel):
+    model_config = ConfigDict(extra='allow') # 未知のフィールドを許可
+
+    node_name: str = Field(..., alias="Node Name")
+    node_type: str | None = Field(None, alias="Node Type")
+    cas_rn: str | None = Field(None, alias="CAS RN")
+    smiles: str | None = Field(None, alias="SMILES")
+    weight: str | None = Field(None, alias="Weight")
+    volume: str | None = Field(None, alias="Volume")
+    note: str | None = Field(None, alias="Note")
+
+class ProcessingProperties(BaseModel):
+    model_config = ConfigDict(extra='allow') # 未知のフィールドを許可
+
+    node_name: str = Field(..., alias="Node Name")
+    note: str | None = Field(None, alias="Note")
+
+class MeasurementProperties(BaseModel):
+    model_config = ConfigDict(extra='allow') # 未知のフィールドを許可
+
+    node_name: str = Field(..., alias="Node Name")
+    note: str | None = Field(None, alias="Note")
+
+class OthersProperties(BaseModel):
+    model_config = ConfigDict(extra='allow') # 未知のフィールドを許可
+
+    node_name: str = Field(..., alias="Node Name")
+    note: str | None = Field(None, alias="Note")
+
+PropertyTypes = Union[SubstanceProperties, ProcessingProperties, MeasurementProperties, OthersProperties]
 
 class Node(BaseModel):
     """グラフのノードを表すモデル"""
     id: str = Field(..., description="ノードの一意なカスタムID")
-    # 変更点: categoryは単一の文字列であることを明確化
-    category: str = Field(..., description="ノードのカテゴリ (例: Substances, Processing)")
-    properties: Dict[str, Any] = {}
+    category: Literal["Substances", "Processing", "Measurement", "Others"]
+    properties: PropertyTypes # 汎用の辞書から、カテゴリ別の厳密なモデルに変更
 
 class Edge(BaseModel):
     """グラフのエッジ（リレーションシップ）を表すモデル"""
@@ -23,7 +59,7 @@ class ExperimentCreate(BaseModel):
     experiment_name: str
     registrant: str
     registration_date: date
-    nodes: List[Node]
+    nodes: List[Node] # 更新されたNodeモデルを使用
     edges: List[Edge]
 
 class ExperimentDetails(ExperimentCreate):
